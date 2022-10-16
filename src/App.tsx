@@ -1,24 +1,58 @@
-import React from 'react';
-import logo from './logo.svg';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Converter } from './components/Converter';
+import { Header } from './components/Header';
+import { TypeCurrency } from './types/TypeCurrency';
+import { Spiner } from './components/Spiner';
+import { MessageError } from './components/MessageError';
 import './App.css';
 
 function App() {
+  const [exchangeRates, setExchangeRates] = useState<TypeCurrency>({});
+  const [isLoadingExchangeRates, setIsloadingExchangeRates] = useState(true);
+  const [currentDate, setCurrentDate] = useState('');
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const date = new Date().toLocaleDateString('en-GB');
+    setCurrentDate(date);
+    console.log(date);
+  }, [])
+
+  useEffect(() => {
+    setIsloadingExchangeRates(true); 
+
+    axios.get(
+      `https://bank.gov.ua/NBUStatService/v1/statdirectory/exchangenew?json${currentDate}`)
+    .then(res => {
+      setExchangeRates({'UAH': 1, 
+      ...Object.fromEntries([
+        ...res.data.map((currency: any) => 
+          [currency.cc,  currency.rate])
+        ])
+      }); 
+    })
+    .catch(() => setHasError(true))
+    .finally(() => setIsloadingExchangeRates(false));
+  }, [currentDate]);
+  
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      {!isLoadingExchangeRates && !hasError &&
+        <>
+          <Header 
+            dollarRate={exchangeRates['USD']} 
+            euroRate={exchangeRates['EUR']} 
+            currentDate={currentDate}
+          />
+          <Converter 
+            exchangeRates={exchangeRates} 
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate} 
+          />
+        </>}
+      {isLoadingExchangeRates && <Spiner />}
+      {hasError && <MessageError />}
     </div>
   );
 }
